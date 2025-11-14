@@ -1,0 +1,56 @@
+# Dependencias
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Variables de entorno (CRÍTICO - nunca subir)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Archivos compilados
+dist/
+build/
+*.js
+*.js.map
+!jest.config.js
+!vercel.json
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs y editores
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Vercel
+.vercel
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporales
+*.tmp
+*.temp
+.cache/
