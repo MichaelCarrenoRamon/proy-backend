@@ -10,30 +10,54 @@ dotenv.config();
 
 const app = express();
 
-// Configuración de CORS
+// ✅ CONFIGURACIÓN DE CORS MEJORADA
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
   : [
       'http://localhost:5173',
       'http://localhost:5174',
-      'http://localhost:3000'
+      'http://localhost:3000',
+      'http://localhost:4173',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
     ];
+
+// En desarrollo, agregar más flexibilidad
+if (isDevelopment) {
+  console.log('🔧 Modo desarrollo: CORS más permisivo');
+}
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Permitir requests sin origin (como mobile apps o curl)
-    if (!origin) return callback(null, true);
+    // Permitir peticiones sin origin (como Postman, curl, o mismo servidor)
+    if (!origin) {
+      console.log('✅ Request sin origin (permitido)');
+      return callback(null, true);
+    }
     
+    // En desarrollo, permitir cualquier localhost
+    if (isDevelopment && origin.includes('localhost')) {
+      console.log('✅ Origin localhost permitido:', origin);
+      return callback(null, true);
+    }
+    
+    // Verificar lista de orígenes permitidos
     if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log('✅ Origin en lista permitida:', origin);
       callback(null, true);
     } else {
-      console.log('❌ Origen bloqueado por CORS:', origin);
+      console.log('❌ Origin bloqueado:', origin);
+      console.log('📝 Orígenes permitidos:', allowedOrigins);
       callback(new Error('No permitido por CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 600 // Cache preflight por 10 minutos
 }));
 
 // Middleware para parsear JSON
@@ -43,12 +67,8 @@ app.use(express.urlencoded({ extended: true }));
 // Logging middleware mejorado
 app.use((req, res, next) => {
   console.log(`📥 ${req.method} ${req.path}`, {
-    query: req.query,
-    body: req.method !== 'GET' ? req.body : undefined,
-    headers: {
-      origin: req.headers.origin,
-      authorization: req.headers.authorization ? '✓ Presente' : '✗ Ausente'
-    }
+    origin: req.headers.origin || 'sin origin',
+    hasAuth: !!req.headers.authorization
   });
   next();
 });
@@ -99,7 +119,7 @@ app.get('/health/db', async (req, res) => {
   }
 });
 
-// Ruta raíz
+// Ruta raíz con documentación
 app.get('/', (req, res) => {
   res.json({
     message: '🚀 API Consultorio Jurídico',
@@ -114,28 +134,8 @@ app.get('/', (req, res) => {
         recoverPassword: 'POST /api/auth/recover-password',
         resetPassword: 'POST /api/auth/reset-password'
       },
-      cases: {
-        getAll: 'GET /api/cases',
-        getById: 'GET /api/cases/:cedula',
-        create: 'POST /api/cases',
-        createComplete: 'POST /api/cases/complete',
-        update: 'PUT /api/cases/:cedula',
-        updateComplete: 'PUT /api/cases/:cedula/complete',
-        delete: 'DELETE /api/cases/:cedula',
-        getFicha: 'GET /api/cases/:cedula/ficha',
-        migrate: 'PUT /api/cases/:cedulaVieja/migrate/:cedulaNueva'
-      },
-      activities: {
-        getAll: 'GET /api/activities',
-        create: 'POST /api/activities',
-        update: 'PUT /api/activities/:id',
-        delete: 'DELETE /api/activities/:id',
-        toggle: 'PATCH /api/activities/:id/toggle'
-      },
-      encuestas: {
-        save: 'POST /api/encuestas',
-        stats: 'GET /api/encuestas/stats'
-      }
+      cases: 'GET /api/cases',
+      activities: 'GET /api/activities'
     }
   });
 });
@@ -146,8 +146,7 @@ app.use((req, res) => {
   res.status(404).json({ 
     error: 'Ruta no encontrada',
     path: req.path,
-    method: req.method,
-    availableEndpoints: '/health, /health/db, /api/auth/*, /api/cases/*, /api/activities/*'
+    method: req.method
   });
 });
 
@@ -173,17 +172,13 @@ async function init() {
       initialized = true;
     } catch (error) {
       console.error('❌ Error al inicializar BD:', error);
-      // No lanzar error para que la app siga funcionando
     }
   }
 }
 
-// Handler para Vercel - CRÍTICO
+// Handler para Vercel
 export default async (req: any, res: any) => {
-  // Inicializar DB solo una vez
   await init();
-  
-  // Pasar la request a Express
   return app(req, res);
 };
 
@@ -192,6 +187,7 @@ if (process.env.NODE_ENV !== 'production') {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`🌐 Orígenes CORS permitidos:`, allowedOrigins);
     init();
   });
 }
