@@ -59,7 +59,7 @@ app.get('/health', (req, res) => {
 app.get('/health/db', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW() as time, current_database() as database');
-    const usersCount = await pool.query('SELECT COUNT(*) as count FROM users');
+    const usersCount = await pool.query('SELECT COUNT(*) as count FROM usuarios');
     
     res.json({
       status: 'ok',
